@@ -205,27 +205,31 @@ export default {
 </script>
 
 <style scoped>
-.course-schedule-container {
+ .course-schedule-container {
   display: flex;
-  font-family: Arial, sans-serif;
-  border: 1px solid #e0e0e0;
-  border-radius: 4px;
+  font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+  border: none;
+  border-radius: 8px;
   overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  background-color: #ffffff;
 }
 
 /* Left side styles */
 .subject-list {
-  width: 200px;
-  background-color: #f5f5f5;
-  padding: 15px;
-  border-right: 1px solid #e0e0e0;
+  width: 220px;
+  background-color: #f7faff;
+  padding: 20px;
+  border-right: 1px solid #e6f0ff;
 }
 
 .subject-list h3 {
   margin-top: 0;
-  margin-bottom: 15px;
-  color: #333;
+  margin-bottom: 20px;
+  color: #2c5282;
+  font-weight: 600;
+  font-size: 18px;
+  letter-spacing: 0.5px;
 }
 
 .datalist {
@@ -235,22 +239,28 @@ export default {
 }
 
 .datalist li {
-  padding: 10px;
-  margin-bottom: 5px;
+  padding: 12px 16px;
+  margin-bottom: 8px;
   background-color: #fff;
-  border-radius: 4px;
+  border-radius: 6px;
   cursor: pointer;
-  transition: all 0.2s;
-  user-select: none; /* Prevent text selection during drag */
+  transition: all 0.2s ease;
+  user-select: none;
+  color: #4a5568;
+  border: 1px solid #edf2f7;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
 }
 
 .datalist li:hover {
-  background-color: #f0f0f0;
+  background-color: #ebf4ff;
+  transform: translateY(-1px);
 }
 
 .datalist li.active {
-  background-color: #e6f7ff;
-  border-left: 3px solid #1890ff;
+  background-color: #ebf8ff;
+  border-left: 3px solid #4299e1;
+  color: #2b6cb0;
+  font-weight: 500;
 }
 
 /* Drag styles */
@@ -265,7 +275,7 @@ export default {
 /* Right side styles */
 .schedule-container {
   flex: 1;
-  padding: 15px;
+  padding: 20px;
   background-color: #fff;
 }
 
@@ -273,35 +283,47 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 15px;
+  margin-bottom: 20px;
 }
 
 .schedule-header h3 {
   margin: 0;
-  color: #333;
+  color: #2c5282;
+  font-weight: 600;
+  font-size: 18px;
+  letter-spacing: 0.5px;
 }
 
 .export-btn {
-  background-color: #1890ff;
+  background-color: #4299e1;
   color: white;
   border: none;
-  padding: 8px 16px;
-  border-radius: 4px;
+  padding: 10px 18px;
+  border-radius: 6px;
   cursor: pointer;
   font-size: 14px;
-  transition: background-color 0.3s;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(66, 153, 225, 0.2);
 }
 
 .export-btn:hover {
-  background-color: #40a9ff;
+  background-color: #3182ce;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px rgba(66, 153, 225, 0.25);
+}
+
+.export-btn:active {
+  transform: translateY(0);
 }
 
 /* Grid styles */
 .schedule-grid {
   position: relative;
-  border: 1px solid #e8e8e8;
-  border-radius: 4px;
+  border: 1px solid #e6f0ff;
+  border-radius: 8px;
   overflow: hidden;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
 }
 
 .grid-row {
@@ -310,58 +332,77 @@ export default {
 
 .grid-cell {
   flex: 1;
-  min-height: 80px;
-  border: 1px solid #e8e8e8;
-  padding: 10px;
+  min-height: 90px;
+  border: 1px solid #e6f0ff;
+  padding: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
   text-align: center;
+  transition: background-color 0.2s ease;
 }
 
 .header-row {
-  background-color: #f5f5f5;
+  background-color: #f0f7ff;
 }
 
 .header-cell {
   min-height: 50px;
-  font-weight: bold;
+  font-weight: 600;
+  color: #2c5282;
+  letter-spacing: 0.5px;
 }
 
 .time-cell {
-  background-color: #f5f5f5;
+  background-color: #f0f7ff;
   min-width: 80px;
-  font-weight: bold;
+  font-weight: 600;
+  color: #2c5282;
 }
 
 .course-item {
   width: 100%;
   height: 100%;
-  background-color: #e6f7ff;
-  border-radius: 4px;
+  background-color: #ebf8ff;
+  border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 5px;
+  padding: 8px;
+  color: #2b6cb0;
+  font-weight: 500;
+  box-shadow: 0 2px 5px rgba(66, 153, 225, 0.1);
+  transition: all 0.2s ease;
 }
 
-/* Watermark styles */
+.course-item:hover {
+  background-color: #bee3f8;
+  transform: scale(1.02);
+}
+
+/* Watermark styles - keeping the original positioning but updating style */
 .watermark {
   position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%) rotate(-45deg);
-  font-size: 48px;
-  color: rgba(0, 0, 0, 0.1);
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36px;
+  color: rgba(66, 153, 225, 0.08);
   pointer-events: none;
   white-space: nowrap;
   user-select: none;
+  transform: rotate(-30deg);
+  z-index: 10;
 }
 
 /* Drop target highlight */
 .grid-cell.drag-over {
-  background-color: #e6f7ff;
-  border: 2px dashed #1890ff;
+  background-color: #ebf8ff;
+  border: 2px dashed #4299e1;
 }
 
 @media (max-width: 768px) {
@@ -372,7 +413,7 @@ export default {
   .subject-list {
     width: 100%;
     border-right: none;
-    border-bottom: 1px solid #e0e0e0;
+    border-bottom: 1px solid #e6f0ff;
   }
 }
 </style>
