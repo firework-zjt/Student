@@ -1,0 +1,26 @@
+{
+    "name": "fireworks-schedule",
+    "version": "1.0.0",
+    "description": "fireworks的个人课表组件",
+    "main": "dist/fireworks-schedule.umd.js",
+    "module": "dist/fireworks-schedule.esm.js",
+    "unpkg": "dist/fireworks-schedule.min.js",
+    "scripts": {
+        "build": "vue-cli-service build --target lib --name fireworks-schedule src/index.js"
+    },
+    "dependencies": {
+        "html2canvas": "^1.4.1"
+    },
+    "peerDependencies": {
+        "vue": "^2.6.0"
+    },
+    "keywords": [
+        "vue",
+        "vue2",
+        "course",
+        "schedule",
+        "timetable"
+    ],
+    "author": "Your Name",
+    "license": "MIT"
+}
