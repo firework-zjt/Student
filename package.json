@@ -1,6 +1,6 @@
 {
     "name": "fireworks-schedule",
-    "version": "1.0.7",
+    "version": "1.0.8",
     "description": "fireworks的个人课表组件 - vue2.0版本",
     "main": "dist/fireworks-schedule.umd.js",
     "module": "dist/fireworks-schedule.esm.js",
