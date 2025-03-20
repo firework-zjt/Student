@@ -1,9 +1,9 @@
 <template>
-  <!-- 模板部分保持不变 -->
+  <!-- 原模板代码保持不变 -->
   <div class="course-schedule-container">
     <!-- Left side: Subject list -->
-    <div class="subject-list">
-      <h3>课程列表</h3>
+    <div class="subject-list" :style="{ width: subjectListWidth }">
+      <h3>{{ SubjectTitle }}</h3>
       <ul class="datalist">
         <li 
           v-for="(subject, index) in subjects" 
@@ -19,9 +19,9 @@
     </div>
     
     <!-- Right side: Course schedule grid -->
-    <div class="schedule-container">
+    <div class="schedule-container" :style="{ width: scheduleContainerWidth }">
       <div class="schedule-header">
-        <h3>课程表</h3>
+        <h3>{{ mainTitle }}</h3>
         <div class="action-buttons">
           <button @click="exportAsImage" class="export-btn">导出图片</button>
           <button @click="clearAll" class="clear-btn">清空</button>
@@ -36,6 +36,7 @@
             v-for="(day, index) in dayslist" 
             :key="'day-' + index" 
             class="grid-cell header-cell"
+            :style="{ width: cellWidth, height: cellHeight }"
           >
             {{ day }}
           </div>
@@ -47,11 +48,12 @@
           :key="'time-' + rowIndex" 
           class="grid-row"
         >
-          <div class="grid-cell time-cell">{{ time }}</div>
+          <div class="grid-cell time-cell" :style="{ width: cellWidth, height: cellHeight }">{{ time }}</div>
           <div 
             v-for="(day, colIndex) in dayslist" 
             :key="'cell-' + rowIndex + '-' + colIndex" 
             class="grid-cell"
+            :style="{ width: cellWidth, height: cellHeight }"
             :class="{ 'drag-over': isDragOver(rowIndex, colIndex) }"
             @dragenter.prevent="onDragEnter(rowIndex, colIndex)"
             @dragleave.prevent="onDragLeave(rowIndex, colIndex)"
@@ -60,6 +62,7 @@
             draggable="true"
             @dragstart="onCellDragStart($event, rowIndex, colIndex)"
             @dragend="onDragEnd($event, rowIndex, colIndex)"
+            @click="addCourseOnClick(rowIndex, colIndex)"
           >
             <div v-if="schedule[rowIndex] && schedule[rowIndex][colIndex]" class="course-item">
               {{ schedule[rowIndex][colIndex] }}
@@ -94,15 +97,32 @@
 import html2canvas from 'html2canvas';
 
 /**
- * 课程表组件
+ * 课程拖拽时间表组件，支持拖拽课程到指定单元格，导出课程表为图片等功能。
  * 
  * @component
  * @name CourseSchedule
- * @auther Fireworks
+ * @author Fireworks
  * @prop {Array} subjects - 课程列表
  * @prop {Array} times - 时间表
  * @prop {Array} dayslist - 星期列表
  * @prop {string} watermarkText - 水印文本
+ * @prop {string} mainTitle - 主标题
+ * @prop {string} SubjectTitle - 课程列表标题
+ * @prop {string} primaryColor - 主体颜色
+ * @prop {string} subjectListWidth - 左侧课程列表宽度
+ * @prop {string} scheduleContainerWidth - 右侧课程表容器宽度
+ * @prop {string} cellWidth - 右侧课程表内单元格宽度
+ * @prop {string} cellHeight - 右侧课程表内单元格高度
+ * @emits course-added - 课程添加事件
+ * @emits course-removed - 课程移除事件
+ * @emits export-complete - 导出完成事件
+ * @emits clear-complete - 清空完成事件
+ * @emits move-success - 移动成功事件
+ * @emits confirm-remove - 确认移除事件
+ * @emits cancel-remove - 取消移除事件
+ * @emits onDragStart - 开始拖拽事件
+ * @emits onCellDragStart - 开始拖拽单元格事件
+ * @example
  */
 export default {
   name: 'CourseSchedule',
@@ -114,16 +134,16 @@ export default {
      */
     subjects: {
       type: Array,
-      default: () => ['数学', '英语', '语文']
+      default: () => []
     },
     /**
      * 时间表
      * @type {Array}
-     * @default ['1', '2', '3', '4', '5', '6', '7', '8', '9']
+     * @default ['第一节', '第二节', '第三节', '第四节', '第五节', '第六节', '第七节', '第八节', '第九节']
      */
     times: {
       type: Array,
-      default: () => ['第一节', '第二节', '第三节', '第四节', '第五节', '第六节', '第七节', '第八节', '第九节']
+      default: () => ['第一节', '第二节', '第三节', '第四节', '第五节', '第六节']
     },
     /**
      * 星期列表
@@ -142,6 +162,69 @@ export default {
     watermarkText: {
       type: String,
       default: 'Fireworks的课程表组件'
+    },
+    /**
+     * 主标题
+     * @type {string}
+     * @default '课程表'
+     */
+    mainTitle: {
+      type: String,
+      default: '课程表'
+    },
+    /**
+     * 课程列表标题
+     * @type {string}
+     * @default '课程列表'
+     */
+    SubjectTitle: {
+      type: String,
+      default: '课程列表'
+    },
+    /**
+     * 主体颜色
+     * @type {string}
+     * @default '#4299e1'
+     */
+    primaryColor: {
+      type: String,
+      default: '#ff4100'
+    },
+    /**
+     * 左侧课程列表宽度
+     * @type {string}
+     * @default '220px'
+     */
+    subjectListWidth: {
+      type: String,
+      default: '220px'
+    },
+    /**
+     * 右侧课程表容器宽度
+     * @type {string}
+     * @default 'auto'
+     */
+    scheduleContainerWidth: {
+      type: String,
+      default: 'auto'
+    },
+    /**
+     * 右侧课程表内单元格宽度
+     * @type {string}
+     * @default 'auto'
+     */
+    cellWidth: {
+      type: String,
+      default: 'auto'
+    },
+    /**
+     * 右侧课程表内单元格高度
+     * @type {string}
+     * @default '90px'
+     */
+    cellHeight: {
+      type: String,
+      default: '90px'
     }
   },
   data() {
@@ -184,6 +267,20 @@ export default {
       }
     },
     /**
+     * 点击单元格添加课程
+     * @param {number} row - 行索引
+     * @param {number} col - 列索引
+     */
+    addCourseOnClick(row, col) {
+      if (this.selectedSubject && !this.schedule[row][col]) {
+        this.addCourse(row, col);
+        this.showMoveSuccess = true;
+        setTimeout(() => {
+          this.showMoveSuccess = false;
+        }, 1000);
+      }
+    },
+    /**
      * 开始拖拽课程
      * @param {Event} event - 拖拽事件
      * @param {string} subject - 课程名称
@@ -193,10 +290,11 @@ export default {
       event.dataTransfer.effectAllowed = 'move';
       const dragImage = document.createElement('div');
       dragImage.textContent = subject;
-      dragImage.style.backgroundColor = '#ebf8ff';
+      // 使用 CSS 变量设置背景颜色和字体颜色
+      dragImage.style.backgroundColor = 'var(--drag-bg-color)';
       dragImage.style.padding = '10px';
       dragImage.style.borderRadius = '6px';
-      dragImage.style.color = '#2b6cb0';
+      dragImage.style.color = 'var(--primary-color)';
       dragImage.style.fontWeight = '500';
       dragImage.style.position = 'absolute';
       dragImage.style.top = '-1000px';
@@ -274,6 +372,8 @@ export default {
         tempElement.style.position = 'absolute';
         tempElement.style.zIndex = '100';
         tempElement.style.opacity = '0.8';
+        // 使用 CSS 变量设置背景颜色
+        tempElement.style.backgroundColor = 'var(--drag-bg-color)';
         const cell = event.currentTarget;
         const cellRect = cell.getBoundingClientRect();
         tempElement.style.left = `${event.clientX - 50}px`;
@@ -376,7 +476,8 @@ export default {
             watermark.style.left = `${col * spacingX}px`;
             watermark.style.top = `${row * spacingY}px`;
             watermark.style.fontSize = '24px';
-            watermark.style.color = 'rgba(66, 153, 225, 0.3)';
+            // 使用 CSS 变量设置水印颜色
+            watermark.style.color = 'var(--watermark-color)';
             watermark.style.whiteSpace = 'nowrap';
             watermark.style.transform = 'rotate(30deg)';
             watermark.style.transformOrigin = 'center center';
@@ -409,16 +510,75 @@ export default {
     },
   },
   mounted() {
-    // 移除：监听 dragend 事件
+    this.$el.style.setProperty('--primary-color', this.primaryColor);
+    // 计算拖拽背景颜色和水印颜色
+    const primaryColor = this.primaryColor;
+    const lightenedColor = lightenColor(primaryColor, 0.8);
+    const watermarkColor = `rgba(${hexToRgb(primaryColor).join(',')}, 0.3)`;
+    this.$el.style.setProperty('--drag-bg-color', lightenedColor);
+    this.$el.style.setProperty('--watermark-color', watermarkColor);
+
+    // 计算课程列表背景颜色和课程行列背景颜色
+    const subjectListBgColor = lightenColor(primaryColor, 0.9);
+    const courseRowColBgColor = lightenColor(primaryColor, 0.95);
+
+    // 计算鼠标悬停加深颜色
+    const dragBgHoverColor = lightenColor(primaryColor, 0.7);
+    const subjectListBgHoverColor = lightenColor(primaryColor, 0.8);
+    const courseRowColBgHoverColor = lightenColor(primaryColor, 0.9);
+
+    // 设置新的 CSS 变量
+    this.$el.style.setProperty('--subject-list-bg-color', subjectListBgColor);
+    this.$el.style.setProperty('--course-row-col-bg-color', courseRowColBgColor);
+    this.$el.style.setProperty('--drag-bg-hover-color', dragBgHoverColor);
+    this.$el.style.setProperty('--subject-list-bg-hover-color', subjectListBgHoverColor);
+    this.$el.style.setProperty('--course-row-col-bg-hover-color', courseRowColBgHoverColor);
   },
   beforeUnmount() {
-    // 移除：移除 dragend 事件监听
+    // 移除 CSS 变量
+    this.$el.style.removeProperty('--primary-color');
+    this.$el.style.removeProperty('--drag-bg-color');
+    this.$el.style.removeProperty('--watermark-color');
+    this.$el.style.removeProperty('--subject-list-bg-color');
+    this.$el.style.removeProperty('--course-row-col-bg-color');
+    this.$el.style.removeProperty('--drag-bg-hover-color');
+    this.$el.style.removeProperty('--subject-list-bg-hover-color');
+    this.$el.style.removeProperty('--course-row-col-bg-hover-color');
   }
+}
+
+// 辅助函数：将十六进制颜色转换为 RGB 数组
+function hexToRgb(hex) {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return [r, g, b];
+}
+
+// 辅助函数：提亮颜色
+function lightenColor(hex, factor) {
+  const [r, g, b] = hexToRgb(hex);
+  const newR = Math.min(255, Math.round(r + (255 - r) * factor));
+  const newG = Math.min(255, Math.round(g + (255 - g) * factor));
+  const newB = Math.min(255, Math.round(b + (255 - b) * factor));
+  return `#${newR.toString(16).padStart(2, '0')}${newG.toString(16).padStart(2, '0')}${newB.toString(16).padStart(2, '0')}`;
 }
 </script>
 
 <style scoped>
-/* 样式保持不变 */
+/* 使用 CSS 变量设置主体颜色 */
+:root {
+  --primary-color: #4299e1;
+  --drag-bg-color: #ebf8ff;
+  --watermark-color: rgba(66, 153, 225, 0.3);
+  --subject-list-bg-color: #f7faff; /* 新增 */
+  --course-row-col-bg-color: #f0f7ff; /* 新增 */
+  --drag-bg-hover-color: #d6eaf8; /* 新增 */
+  --subject-list-bg-hover-color: #e0f0ff; /* 新增 */
+  --course-row-col-bg-hover-color: #d0e5ff; /* 新增 */
+}
+
+/* 样式保持不变，部分颜色使用 CSS 变量 */
 .course-schedule-container {
   display: flex;
   font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
@@ -430,12 +590,9 @@ export default {
 }
 
 .subject-list {
-  width: 220px;
-  background-color: #f7faff;
   padding: 20px;
   border-right: 1px solid #e6f0ff;
 }
-
 .subject-list h3 {
   margin-top: 0;
   margin-bottom: 20px;
@@ -465,14 +622,14 @@ export default {
 }
 
 .datalist li:hover {
-  background-color: #ebf4ff;
+  background-color: var(--drag-bg-hover-color);
   transform: translateY(-1px);
 }
 
 .datalist li.active {
-  background-color: #ebf8ff;
-  border-left: 3px solid #4299e1;
-  color: #2b6cb0;
+  background-color: var(--drag-bg-color);
+  border-left: 3px solid var(--primary-color);
+  color: var(--primary-color);
   font-weight: 500;
 }
 
@@ -511,7 +668,7 @@ export default {
 }
 
 .export-btn, .clear-btn {
-  background-color: #4299e1;
+  background-color: var(--primary-color);
   color: white;
   border: none;
   padding: 10px 18px;
@@ -547,7 +704,6 @@ export default {
 
 .grid-cell {
   flex: 1;
-  min-height: 90px;
   border: 1px solid #e6f0ff;
   padding: 12px;
   display: flex;
@@ -557,8 +713,16 @@ export default {
   transition: background-color 0.2s ease;
 }
 
+.grid-cell:hover {
+  background-color: var(--course-row-col-bg-hover-color);
+}
+
 .header-row {
-  background-color: #f0f7ff;
+  background-color: var(--course-row-col-bg-color); /* 修改 */
+}
+
+.header-row .grid-cell:hover {
+  background-color: var(--course-row-col-bg-hover-color);
 }
 
 .header-cell {
@@ -569,29 +733,30 @@ export default {
 }
 
 .time-cell {
-  background-color: #f0f7ff;
-  min-width: 80px;
-  font-weight: 600;
-  color: #2c5282;
+  background-color: var(--course-row-col-bg-color); /* 修改 */
+}
+
+.time-cell:hover {
+  background-color: var(--course-row-col-bg-hover-color);
 }
 
 .course-item {
   width: 100%;
   height: 100%;
-  background-color: #ebf8ff;
+  background-color: var(--drag-bg-color);
   border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 8px;
-  color: #2b6cb0;
+  color: var(--primary-color);
   font-weight: 500;
   box-shadow: 0 2px 5px rgba(66, 153, 225, 0.1);
   transition: all 0.2s ease;
 }
 
 .course-item:hover {
-  background-color: #bee3f8;
+  background-color: var(--drag-bg-hover-color);
   transform: scale(1.02);
 }
 
@@ -605,7 +770,7 @@ export default {
   align-items: center;
   justify-content: center;
   font-size: 36px;
-  color: rgba(66, 153, 225, 0.08);
+  color: var(--watermark-color);
   pointer-events: none;
   white-space: nowrap;
   user-select: none;
@@ -614,8 +779,8 @@ export default {
 }
 
 .grid-cell.drag-over {
-  background-color: #ebf8ff;
-  border: 2px dashed #4299e1;
+  background-color: var(--drag-bg-color);
+  border: 2px dashed var(--primary-color);
 }
 
 /* 移动成功提示样式 */
@@ -660,7 +825,7 @@ export default {
 }
 
 .confirm-btn, .cancel-btn {
-  background-color: #4299e1;
+  background-color: var(--primary-color);
   color: white;
   border: none;
   padding: 10px 18px;
