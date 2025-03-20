@@ -16,7 +16,7 @@ npm install html2canvas
 
 ```
 <script>
-import CourseSchedule from 'course-schedule'; // 替换为实际路径
+import CourseSchedule from 'fireworks-schedule'; // 替换为实际路径
 export default {
  components: {
     CourseSchedule
