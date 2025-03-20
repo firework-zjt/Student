@@ -1,4 +1,5 @@
 <template>
+  <!-- 模板部分保持不变 -->
   <div class="course-schedule-container">
     <!-- Left side: Subject list -->
     <div class="subject-list">
@@ -21,7 +22,10 @@
     <div class="schedule-container">
       <div class="schedule-header">
         <h3>课程表</h3>
-        <button @click="exportAsImage" class="export-btn">导出图片</button>
+        <div class="action-buttons">
+          <button @click="exportAsImage" class="export-btn">导出图片</button>
+          <button @click="clearAll" class="clear-btn">清空</button>
+        </div>
       </div>
       
       <div ref="scheduleGrid" class="schedule-grid">
@@ -29,7 +33,7 @@
         <div class="grid-row header-row">
           <div class="grid-cell header-cell"></div>
           <div 
-            v-for="(day, index) in days" 
+            v-for="(day, index) in dayslist" 
             :key="'day-' + index" 
             class="grid-cell header-cell"
           >
@@ -45,7 +49,7 @@
         >
           <div class="grid-cell time-cell">{{ time }}</div>
           <div 
-            v-for="(day, colIndex) in days" 
+            v-for="(day, colIndex) in dayslist" 
             :key="'cell-' + rowIndex + '-' + colIndex" 
             class="grid-cell"
             :class="{ 'drag-over': isDragOver(rowIndex, colIndex) }"
@@ -53,6 +57,9 @@
             @dragleave.prevent="onDragLeave(rowIndex, colIndex)"
             @dragover.prevent="onDragOver($event)"
             @drop="onDrop($event, rowIndex, colIndex)"
+            draggable="true"
+            @dragstart="onCellDragStart($event, rowIndex, colIndex)"
+            @dragend="onDragEnd($event, rowIndex, colIndex)"
           >
             <div v-if="schedule[rowIndex] && schedule[rowIndex][colIndex]" class="course-item">
               {{ schedule[rowIndex][colIndex] }}
@@ -66,39 +73,72 @@
         </div>
       </div>
     </div>
+    <!-- 移动成功提示 -->
+    <div v-if="showMoveSuccess" class="move-success-tip">
+      <p>移动成功</p>
+    </div>
+    <!-- 确认对话框 -->
+    <div v-if="showConfirmDialog" class="confirm-dialog">
+      <div class="dialog-content">
+        <p>确认移除该课程吗？</p>
+        <div class="dialog-buttons">
+          <button @click="confirmRemove" class="confirm-btn">确认</button>
+          <button @click="cancelRemove" class="cancel-btn">取消</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script>
-/**
- * Schedule 课程表  点击左侧对应的课程表数据，然后拖拽到右侧的课题内容里面
- * @module Schedule 课程表
- * @author Fireworks
- * @property {Array} subjects 左侧列表的课程数组
- * @property {Number} rows 课程表的行数
- * @property {Number} columns 课程表的列数
- * @property {String} watermarkText 水印文字
- * @event course-added 课程添加事件
- * @event export-complete 导出完成事件
- * @example
- */
-
 import html2canvas from 'html2canvas';
+
+/**
+ * 课程表组件
+ * 
+ * @component
+ * @name CourseSchedule
+ * @auther Fireworks
+ * @prop {Array} subjects - 课程列表
+ * @prop {Array} times - 时间表
+ * @prop {Array} dayslist - 星期列表
+ * @prop {string} watermarkText - 水印文本
+ */
 export default {
   name: 'CourseSchedule',
   props: {
+    /**
+     * 课程列表
+     * @type {Array}
+     * @default ['数学', '英语', '语文']
+     */
     subjects: {
       type: Array,
       default: () => ['数学', '英语', '语文']
     },
-    rows: {
-      type: Number,
-      default: 5
+    /**
+     * 时间表
+     * @type {Array}
+     * @default ['1', '2', '3', '4', '5', '6', '7', '8', '9']
+     */
+    times: {
+      type: Array,
+      default: () => ['第一节', '第二节', '第三节', '第四节', '第五节', '第六节', '第七节', '第八节', '第九节']
     },
-    columns: {
-      type: Number,
-      default: 5
+    /**
+     * 星期列表
+     * @type {Array}
+     * @default ['周一', '周二', '周三', '周四', '周五']
+     */
+    dayslist: {
+      type: Array,
+      default: () => ['周一', '周二', '周三', '周四', '周五'] 
     },
+    /**
+     * 水印文本
+     * @type {string}
+     * @default 'Fireworks的课程表组件'
+     */
     watermarkText: {
       type: String,
       default: 'Fireworks的课程表组件'
@@ -107,45 +147,35 @@ export default {
   data() {
     return {
       selectedSubject: '',
-      days: ['周一', '周二', '周三', '周四', '周五'],
-      times: [],
       schedule: [],
-      dragTarget: null
+      dragTarget: null,
+      dragSource: null, // 用于记录拖拽的源单元格
+      showMoveSuccess: false, // 控制移动成功提示的显示
+      showConfirmDialog: false, // 控制确认对话框的显示
+      confirmRow: null,
+      confirmCol: null
     };
   },
   created() {
     if (this.subjects.length > 0) {
       this.selectedSubject = this.subjects[0];
     }
-    this.generateTimeSlots();
     this.initializeSchedule();
   },
   methods: {
     /**
-     * @function generateTimeSlots
-     * @returns {void}
-     */
-    generateTimeSlots() {
-      this.times = [];
-      for (let i = 1; i <= this.rows; i++) {
-        this.times.push(`第${i}节`);
-      }
-    },
-    /**
-     * @function initializeSchedule
-     * @returns {void}
+     * 初始化课程表
      */
     initializeSchedule() {
       this.schedule = [];
-      for (let i = 0; i < this.rows; i++) {
-        this.schedule[i] = new Array(this.columns).fill('');
+      for (let i = 0; i < this.times.length; i++) {
+        this.schedule[i] = new Array(this.dayslist.length).fill('');
       }
     },
     /**
-     * @function addCourse
-     * @param {Number} row - 行索引
-     * @param {Number} col - 列索引
-     * @returns {void}
+     * 添加课程到指定单元格
+     * @param {number} row - 行索引
+     * @param {number} col - 列索引
      */
     addCourse(row, col) {
       if (this.selectedSubject) {
@@ -154,19 +184,13 @@ export default {
       }
     },
     /**
-     * @function onDragStart
-     * @param {Object} event - 事件对象
-     * @param {String} subject - 课程名称
-     * @returns {void}
+     * 开始拖拽课程
+     * @param {Event} event - 拖拽事件
+     * @param {string} subject - 课程名称
      */
     onDragStart(event, subject) {
-      // 设置拖拽数据
       event.dataTransfer.setData('text/plain', subject);
-      
-      // 设置拖拽效果
       event.dataTransfer.effectAllowed = 'move';
-      
-      // 创建一个自定义拖拽图像（可选）
       const dragImage = document.createElement('div');
       dragImage.textContent = subject;
       dragImage.style.backgroundColor = '#ebf8ff';
@@ -177,209 +201,225 @@ export default {
       dragImage.style.position = 'absolute';
       dragImage.style.top = '-1000px';
       document.body.appendChild(dragImage);
-      
-      // 设置自定义拖拽图像
       event.dataTransfer.setDragImage(dragImage, 35, 35);
-      
-      // 设置当前选中的课程
       this.selectedSubject = subject;
-      
-      // 延迟移除拖拽图像元素
       setTimeout(() => {
         document.body.removeChild(dragImage);
       }, 0);
     },
     /**
-     * @function onDragEnter
-     * @param {Number} row - 行索引
-     * @param {Number} col - 列索引
-     * @returns {void}
+     * 开始拖拽单元格
+     * @param {Event} event - 拖拽事件
+     * @param {number} row - 行索引
+     * @param {number} col - 列索引
+     */
+    onCellDragStart(event, row, col) {
+      const subject = this.schedule[row][col];
+      if (subject) {
+        event.dataTransfer.setData('text/plain', subject);
+        event.dataTransfer.effectAllowed = 'move';
+        this.dragSource = { row, col }; // 记录拖拽的源单元格
+      } else {
+        event.preventDefault(); // 如果单元格为空，阻止拖拽
+      }
+    },
+    /**
+     * 拖拽进入单元格
+     * @param {number} row - 行索引
+     * @param {number} col - 列索引
      */
     onDragEnter(row, col) {
-      // 设置当前拖拽目标
       this.dragTarget = { row, col };
     },
     /**
-     * @function onDragLeave
-     * @param {Number} row - 行索引
-     * @param {Number} col - 列索引
-     * @returns {void}
+     * 拖拽离开单元格
+     * @param {number} row - 行索引
+     * @param {number} col - 列索引
      */
     onDragLeave(row, col) {
-      // 如果离开的是当前拖拽目标，则清除
       if (this.dragTarget && this.dragTarget.row === row && this.dragTarget.col === col) {
         this.dragTarget = null;
       }
     },
     /**
-     * @function onDragOver
-     * @param {Object} event - 事件对象
-     * @returns {void}
+     * 拖拽经过单元格
+     * @param {Event} event - 拖拽事件
      */
     onDragOver(event) {
-      // 允许放置
       event.preventDefault();
-      // 设置放置效果
       event.dataTransfer.dropEffect = 'move';
     },
     /**
-     * @function isDragOver
-     * @param {Number} row - 行索引
-     * @param {Number} col - 列索引
-     * @returns {Boolean} 是否是当前拖拽目标
+     * 判断是否正在拖拽到指定单元格
+     * @param {number} row - 行索引
+     * @param {number} col - 列索引
+     * @returns {boolean} - 是否正在拖拽到指定单元格
      */
     isDragOver(row, col) {
       return this.dragTarget && this.dragTarget.row === row && this.dragTarget.col === col;
     },
     /**
-     * @function onDrop
-     * @param {Object} event - 事件对象
-     * @param {Number} row - 行索引
-     * @param {Number} col - 列索引
-     * @returns {void}
+     * 放下拖拽的课程
+     * @param {Event} event - 拖拽事件
+     * @param {number} row - 行索引
+     * @param {number} col - 列索引
      */
     onDrop(event, row, col) {
-      // 阻止默认行为
       event.preventDefault();
-      
-      // 获取拖拽的课程数据
       const subject = event.dataTransfer.getData('text/plain');
-      
       if (subject) {
-        // 创建一个临时元素用于动画
         const tempElement = document.createElement('div');
         tempElement.className = 'course-item';
         tempElement.textContent = subject;
         tempElement.style.position = 'absolute';
         tempElement.style.zIndex = '100';
         tempElement.style.opacity = '0.8';
-        
-        // 获取目标单元格的位置
         const cell = event.currentTarget;
         const cellRect = cell.getBoundingClientRect();
-        
-        // 设置临时元素的初始位置（鼠标位置）
         tempElement.style.left = `${event.clientX - 50}px`;
         tempElement.style.top = `${event.clientY - 25}px`;
         tempElement.style.width = '100px';
         tempElement.style.height = '50px';
-        
-        // 添加到文档中
         document.body.appendChild(tempElement);
-        
-        // 添加动画效果
         tempElement.style.transition = 'all 0.3s ease-out';
-        
-        // 设置目标位置（延迟一帧以确保过渡效果生效）
         setTimeout(() => {
           tempElement.style.left = `${cellRect.left}px`;
           tempElement.style.top = `${cellRect.top}px`;
           tempElement.style.width = `${cellRect.width}px`;
           tempElement.style.height = `${cellRect.height}px`;
           tempElement.style.opacity = '0';
-          
-          // 动画结束后移除临时元素并更新数据
           setTimeout(() => {
             document.body.removeChild(tempElement);
-            
-            // 更新课程表数据（覆盖现有数据）
+            // 直接覆盖目标单元格内容
             this.$set(this.schedule[row], col, subject);
-            
-            // 触发课程添加事件
+            if (this.dragSource) {
+              if (this.dragSource.row === row && this.dragSource.col === col) {
+                // 拖拽到同一个单元格，不做处理
+              } else {
+                this.$set(this.schedule[this.dragSource.row], this.dragSource.col, ''); // 清除源单元格内容
+                this.showMoveSuccess = true;
+                setTimeout(() => {
+                  this.showMoveSuccess = false;
+                }, 1000);
+              }
+              this.dragSource = null; // 清除拖拽源
+            }
             this.$emit('course-added', { row, col, subject });
-            
-            // 清除拖拽目标
             this.dragTarget = null;
           }, 300);
         }, 10);
       }
     },
     /**
-     * @function exportAsImage
-     * @returns {Promise<void>}
+     * 拖拽结束
+     * @param {Event} event - 拖拽事件
+     * @param {number} row - 行索引
+     * @param {number} col - 列索引
      */
-     async exportAsImage() {
-  try {
-    // Get the schedule grid element
-    const element = this.$refs.scheduleGrid;
-    const gridRect = element.getBoundingClientRect();
-    
-    // Hide the existing watermark (we'll create a new one)
-    if (this.$refs.watermark) {
-      this.$refs.watermark.style.display = 'none';
-    }
-    
-    // Create a watermark container
-    const watermarkContainer = document.createElement('div');
-    watermarkContainer.style.position = 'absolute';
-    watermarkContainer.style.top = '0';
-    watermarkContainer.style.left = '0';
-    watermarkContainer.style.width = '100%';
-    watermarkContainer.style.height = '100%';
-    watermarkContainer.style.overflow = 'hidden';
-    watermarkContainer.style.pointerEvents = 'none';
-    watermarkContainer.style.zIndex = '10';
-    
-    // Calculate how many watermarks we need to tile the entire area
-    // We'll create a grid of watermarks with some overlap
-    const spacingX = 300; // Horizontal spacing between watermarks
-    const spacingY = 240; // Vertical spacing between watermarks
-    
-    // Calculate rows and columns needed
-    const cols = Math.ceil(gridRect.width / spacingX) + 1;
-    const rows = Math.ceil(gridRect.height / spacingY) + 1;
-    
-    // Create the watermark grid
-    for (let row = -1; row < rows; row++) {
-      for (let col = -1; col < cols; col++) {
-        const watermark = document.createElement('div');
-        watermark.textContent = this.watermarkText;
-        watermark.style.position = 'absolute';
-        watermark.style.left = `${col * spacingX}px`;
-        watermark.style.top = `${row * spacingY}px`;
-        watermark.style.fontSize = '24px';
-        watermark.style.color = 'rgba(66, 153, 225, 0.3)';
-        watermark.style.whiteSpace = 'nowrap';
-        watermark.style.transform = 'rotate(30deg)'; // Changed to 60 degrees
-        watermark.style.transformOrigin = 'center center';
-        watermark.style.userSelect = 'none';
-        
-        watermarkContainer.appendChild(watermark);
+    onDragEnd(event, row, col) {
+      const gridRect = this.$refs.scheduleGrid.getBoundingClientRect();
+      const x = event.clientX;
+      const y = event.clientY;
+      if (
+        x < gridRect.left ||
+        x > gridRect.right ||
+        y < gridRect.top ||
+        y > gridRect.bottom
+      ) {
+        this.showConfirmDialog = true;
+        this.confirmRow = row;
+        this.confirmCol = col;
       }
-    }
-    
-    // Add the watermark container to the grid temporarily
-    element.appendChild(watermarkContainer);
-    
-    // Capture the image with html2canvas
-    const canvas = await html2canvas(element, {
-      backgroundColor: '#ffffff',
-      scale: 2,
-      logging: false
-    });
-    
-    // Remove the watermark container after capturing
-    element.removeChild(watermarkContainer);
-    
-    // Convert to image and download
-    const image = canvas.toDataURL('image/png');
-    const link = document.createElement('a');
-    link.download = '课程表.png';
-    link.href = image;
-    link.click();
-    
-    // Emit the export complete event
-    this.$emit('export-complete', image);
-  } catch (error) {
-    console.error('导出图片失败:', error);
-  }
-}
+    },
+    /**
+     * 确认移除课程
+     */
+    confirmRemove() {
+      this.$set(this.schedule[this.confirmRow], this.confirmCol, '');
+      this.showConfirmDialog = false;
+      this.$emit('course-removed', { row: this.confirmRow, col: this.confirmCol });
+    },
+    /**
+     * 取消移除课程
+     */
+    cancelRemove() {
+      this.showConfirmDialog = false;
+    },
+    /**
+     * 导出课程表为图片
+     */
+    async exportAsImage() {
+      try {
+        const element = this.$refs.scheduleGrid;
+        const gridRect = element.getBoundingClientRect();
+        if (this.$refs.watermark) {
+          this.$refs.watermark.style.display = 'none';
+        }
+        const watermarkContainer = document.createElement('div');
+        watermarkContainer.style.position = 'absolute';
+        watermarkContainer.style.top = '0';
+        watermarkContainer.style.left = '0';
+        watermarkContainer.style.width = '100%';
+        watermarkContainer.style.height = '100%';
+        watermarkContainer.style.overflow = 'hidden';
+        watermarkContainer.style.pointerEvents = 'none';
+        watermarkContainer.style.zIndex = '10';
+        const spacingX = 300;
+        const spacingY = 240;
+        const cols = Math.ceil(gridRect.width / spacingX) + 1;
+        const rows = Math.ceil(gridRect.height / spacingY) + 1;
+        for (let row = -1; row < rows; row++) {
+          for (let col = -1; col < cols; col++) {
+            const watermark = document.createElement('div');
+            watermark.textContent = this.watermarkText;
+            watermark.style.position = 'absolute';
+            watermark.style.left = `${col * spacingX}px`;
+            watermark.style.top = `${row * spacingY}px`;
+            watermark.style.fontSize = '24px';
+            watermark.style.color = 'rgba(66, 153, 225, 0.3)';
+            watermark.style.whiteSpace = 'nowrap';
+            watermark.style.transform = 'rotate(30deg)';
+            watermark.style.transformOrigin = 'center center';
+            watermark.style.userSelect = 'none';
+            watermarkContainer.appendChild(watermark);
+          }
+        }
+        element.appendChild(watermarkContainer);
+        const canvas = await html2canvas(element, {
+          backgroundColor: '#ffffff',
+          scale: 2,
+          logging: false
+        });
+        element.removeChild(watermarkContainer);
+        const image = canvas.toDataURL('image/png');
+        const link = document.createElement('a');
+        link.download = '课程表.png';
+        link.href = image;
+        link.click();
+        this.$emit('export-complete', image);
+      } catch (error) {
+        console.error('导出图片失败:', error);
+      }
+    },
+    /**
+     * 清空所有单元格内容
+     */
+    clearAll() {
+      this.initializeSchedule();
+    },
+  },
+  mounted() {
+    // 移除：监听 dragend 事件
+  },
+  beforeUnmount() {
+    // 移除：移除 dragend 事件监听
   }
 }
 </script>
 
 <style scoped>
- .course-schedule-container {
+/* 样式保持不变 */
+.course-schedule-container {
   display: flex;
   font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
   border: none;
@@ -389,7 +429,6 @@ export default {
   background-color: #ffffff;
 }
 
-/* Left side styles */
 .subject-list {
   width: 220px;
   background-color: #f7faff;
@@ -437,7 +476,6 @@ export default {
   font-weight: 500;
 }
 
-/* Drag styles */
 .datalist li[draggable=true] {
   cursor: grab;
 }
@@ -446,7 +484,6 @@ export default {
   cursor: grabbing;
 }
 
-/* Right side styles */
 .schedule-container {
   flex: 1;
   padding: 20px;
@@ -468,7 +505,12 @@ export default {
   letter-spacing: 0.5px;
 }
 
-.export-btn {
+.action-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+.export-btn, .clear-btn {
   background-color: #4299e1;
   color: white;
   border: none;
@@ -481,17 +523,16 @@ export default {
   box-shadow: 0 2px 4px rgba(66, 153, 225, 0.2);
 }
 
-.export-btn:hover {
+.export-btn:hover, .clear-btn:hover {
   background-color: #3182ce;
   transform: translateY(-1px);
   box-shadow: 0 4px 6px rgba(66, 153, 225, 0.25);
 }
 
-.export-btn:active {
+.export-btn:active, .clear-btn:active {
   transform: translateY(0);
 }
 
-/* Grid styles */
 .schedule-grid {
   position: relative;
   border: 1px solid #e6f0ff;
@@ -554,7 +595,6 @@ export default {
   transform: scale(1.02);
 }
 
-/* Watermark styles - keeping the original positioning but updating style */
 .watermark {
   position: absolute;
   top: 0;
@@ -573,10 +613,73 @@ export default {
   z-index: 10;
 }
 
-/* Drop target highlight */
 .grid-cell.drag-over {
   background-color: #ebf8ff;
   border: 2px dashed #4299e1;
+}
+
+/* 移动成功提示样式 */
+.move-success-tip {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 10px 20px;
+  border-radius: 6px;
+  z-index: 100;
+}
+
+/* 确认对话框样式 */
+.confirm-dialog {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+
+.dialog-content {
+  background-color: white;
+  padding: 20px;
+  border-radius: 6px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.dialog-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.confirm-btn, .cancel-btn {
+  background-color: #4299e1;
+  color: white;
+  border: none;
+  padding: 10px 18px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(66, 153, 225, 0.2);
+}
+
+.confirm-btn:hover, .cancel-btn:hover {
+  background-color: #3182ce;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px rgba(66, 153, 225, 0.25);
+}
+
+.confirm-btn:active, .cancel-btn:active {
+  transform: translateY(0);
 }
 
 @media (max-width: 768px) {
