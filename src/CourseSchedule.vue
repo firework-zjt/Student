@@ -188,7 +188,7 @@ export default {
      */
     primaryColor: {
       type: String,
-      default: '#ff4100'
+      default: '#4299e1'
     },
     /**
      * 左侧课程列表宽度
